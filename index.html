@@ -18,6 +18,7 @@ aiogram==3.22.0
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 SQLAlchemy==2.0.43
+psycopg2-binary==2.9.10
 asyncpg==0.30.0
 pydantic-settings==2.10.1
 python-dotenv==1.1.1
@@ -25,22 +26,16 @@ EOF
 
 
 # =========================================================
-# .env
+# .env.example
 # =========================================================
 
 cat > .env.example <<'EOF'
 BOT_TOKEN=PUT_YOUR_BOT_TOKEN_HERE
-
-DATABASE_URL=postgresql+asyncpg://falcon:falcon@db:5432/falcon
-
+DATABASE_URL=postgresql+psycopg2://falcon:falcon@db:5432/falcon
 WEBAPP_URL=https://YOUR-DOMAIN.com/app/
-
 ADMIN_IDS=123456789
-
 WELCOME_BONUS=1000
-
-REFERRAL_REWARD=0
-
+REFERRAL_REWARD=50
 MIN_WITHDRAWAL_FLC=10000
 EOF
 
@@ -73,65 +68,40 @@ services:
 
   db:
     image: postgres:16-alpine
-
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: falcon
       POSTGRES_USER: falcon
       POSTGRES_PASSWORD: falcon_password_change_me
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U falcon -d falcon"
-        ]
-
+      test: ["CMD-SHELL", "pg_isready -U falcon -d falcon"]
       interval: 5s
       timeout: 5s
       retries: 20
 
-
   api:
     build: .
-
     restart: unless-stopped
-
     env_file:
       - .env
-
-    command:
-      uvicorn app.main:app
-      --host 0.0.0.0
-      --port 8000
-
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       db:
         condition: service_healthy
-
     ports:
       - "8000:8000"
 
-
   bot:
     build: .
-
     restart: unless-stopped
-
     env_file:
       - .env
-
-    command:
-      python -m app.bot.main
-
+    command: python -m app.bot.main
     depends_on:
       db:
         condition: service_healthy
-
 
 volumes:
   postgres_data:
@@ -156,7 +126,7 @@ import hmac
 import hashlib
 import json
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
@@ -190,17 +160,9 @@ DATABASE_URL = os.getenv(
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-WELCOME_BONUS = Decimal(
-    os.getenv("WELCOME_BONUS", "1000")
-)
-
-REFERRAL_REWARD = Decimal(
-    os.getenv("REFERRAL_REWARD", "0")
-)
-
-MIN_WITHDRAWAL = Decimal(
-    os.getenv("MIN_WITHDRAWAL_FLC", "10000")
-)
+WELCOME_BONUS = Decimal(os.getenv("WELCOME_BONUS", "1000"))
+REFERRAL_REWARD = Decimal(os.getenv("REFERRAL_REWARD", "50"))
+MIN_WITHDRAWAL = Decimal(os.getenv("MIN_WITHDRAWAL_FLC", "10000"))
 
 
 # =========================================================
@@ -209,13 +171,7 @@ MIN_WITHDRAWAL = Decimal(
 
 Base = declarative_base()
 
-engine = create_engine(
-    DATABASE_URL.replace(
-        "postgresql+asyncpg",
-        "postgresql+psycopg2"
-    ),
-    pool_pre_ping=True
-)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -229,41 +185,17 @@ SessionLocal = sessionmaker(
 # =========================================================
 
 class User(Base):
-
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-
-    telegram_id = Column(
-        BigInteger,
-        unique=True,
-        index=True,
-        nullable=False
-    )
-
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
     username = Column(String(255))
-
     first_name = Column(String(255))
-
-    balance = Column(
-        Numeric(30, 8),
-        default=Decimal("0")
-    )
-
-    unclaimed_mining = Column(
-        Numeric(30, 8),
-        default=Decimal("0")
-    )
-
-    referred_by = Column(
-        BigInteger,
-        nullable=True
-    )
-
+    balance = Column(Numeric(30, 8), default=Decimal("0"))
+    unclaimed_mining = Column(Numeric(30, 8), default=Decimal("0"))
+    referred_by = Column(BigInteger, nullable=True)
     withdrawal_wallet = Column(Text)
-
     withdrawal_network = Column(String(100))
-
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -271,62 +203,30 @@ class User(Base):
 
 
 class MiningPosition(Base):
-
     __tablename__ = "mining_positions"
 
     id = Column(Integer, primary_key=True)
-
-    user_id = Column(
-        Integer,
-        ForeignKey("users.id"),
-        index=True
-    )
-
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     package_id = Column(Integer)
-
-    purchase_amount = Column(
-        Numeric(30, 8)
-    )
-
-    total_capacity = Column(
-        Numeric(30, 8)
-    )
-
-    remaining_capacity = Column(
-        Numeric(30, 8)
-    )
-
-    daily_rate = Column(
-        Numeric(12, 8)
-    )
-
+    purchase_amount = Column(Numeric(30, 8))
+    total_capacity = Column(Numeric(30, 8))
+    remaining_capacity = Column(Numeric(30, 8))
+    daily_rate = Column(Numeric(12, 8))
     last_update = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
-
-    active = Column(
-        Boolean,
-        default=True
-    )
+    active = Column(Boolean, default=True)
 
 
 class Ledger(Base):
-
     __tablename__ = "ledger"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer)
-
     action = Column(String(100))
-
-    amount = Column(
-        Numeric(30, 8)
-    )
-
+    amount = Column(Numeric(30, 8))
     note = Column(Text)
-
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -334,29 +234,14 @@ class Ledger(Base):
 
 
 class Deposit(Base):
-
     __tablename__ = "deposits"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer)
-
     network = Column(String(100))
-
-    crypto_amount = Column(
-        Numeric(30, 8)
-    )
-
-    txid = Column(
-        String(255),
-        unique=True
-    )
-
-    status = Column(
-        String(30),
-        default="pending"
-    )
-
+    crypto_amount = Column(Numeric(30, 8))
+    txid = Column(String(255), unique=True)
+    status = Column(String(30), default="pending")
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -364,28 +249,15 @@ class Deposit(Base):
 
 
 class Withdrawal(Base):
-
     __tablename__ = "withdrawals"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer)
-
     network = Column(String(100))
-
     wallet = Column(Text)
-
-    amount = Column(
-        Numeric(30, 8)
-    )
-
-    status = Column(
-        String(30),
-        default="pending"
-    )
-
+    amount = Column(Numeric(30, 8))
+    status = Column(String(30), default="pending")
     txid = Column(String(255))
-
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -393,23 +265,12 @@ class Withdrawal(Base):
 
 
 class Referral(Base):
-
     __tablename__ = "referrals"
 
     id = Column(Integer, primary_key=True)
-
     inviter_id = Column(Integer)
-
-    invitee_id = Column(
-        Integer,
-        unique=True
-    )
-
-    reward = Column(
-        Numeric(30, 8),
-        default=Decimal("0")
-    )
-
+    invitee_id = Column(Integer, unique=True)
+    reward = Column(Numeric(30, 8), default=Decimal("0"))
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -417,22 +278,12 @@ class Referral(Base):
 
 
 class WalletConfig(Base):
-
     __tablename__ = "wallet_configs"
 
     id = Column(Integer, primary_key=True)
-
-    network = Column(
-        String(100),
-        unique=True
-    )
-
+    network = Column(String(100), unique=True)
     address = Column(Text)
-
-    active = Column(
-        Boolean,
-        default=True
-    )
+    active = Column(Boolean, default=True)
 
 
 Base.metadata.create_all(engine)
@@ -442,22 +293,16 @@ Base.metadata.create_all(engine)
 # FASTAPI
 # =========================================================
 
-app = FastAPI(
-    title="Falcon Mining Bot",
-    version="1.0.0"
-)
+app = FastAPI(title="Falcon Mining Bot", version="1.0.0")
 
 
 # =========================================================
 # TELEGRAM AUTH
 # =========================================================
 
-def validate_telegram_data(init_data):
-
+def validate_telegram_data(init_data: str):
     if not init_data:
-        raise Exception(
-            "Telegram initData missing"
-        )
+        raise Exception("Telegram initData missing")
 
     data = dict(
         item.split("=", 1)
@@ -465,15 +310,9 @@ def validate_telegram_data(init_data):
         if "=" in item
     )
 
-    received_hash = data.pop(
-        "hash",
-        None
-    )
-
+    received_hash = data.pop("hash", None)
     if not received_hash:
-        raise Exception(
-            "Telegram hash missing"
-        )
+        raise Exception("Telegram hash missing")
 
     data_check = "\n".join(
         f"{key}={data[key]}"
@@ -492,63 +331,37 @@ def validate_telegram_data(init_data):
         hashlib.sha256
     ).hexdigest()
 
-    if not hmac.compare_digest(
-        calculated,
-        received_hash
-    ):
-        raise Exception(
-            "Invalid Telegram authentication"
-        )
+    if not hmac.compare_digest(calculated, received_hash):
+        raise Exception("Invalid Telegram authentication")
 
     if "user" not in data:
-        raise Exception(
-            "Telegram user missing"
-        )
+        raise Exception("Telegram user missing")
 
-    return json.loads(
-        data["user"]
-    )
+    return json.loads(data["user"])
 
 
 # =========================================================
 # USER
 # =========================================================
 
-def get_user(init_data):
-
-    tg_user = validate_telegram_data(
-        init_data
-    )
-
-    telegram_id = int(
-        tg_user["id"]
-    )
+def get_user(init_data: str):
+    tg_user = validate_telegram_data(init_data)
+    telegram_id = int(tg_user["id"])
 
     db = SessionLocal()
-
     try:
-
         user = db.execute(
-            select(User).where(
-                User.telegram_id == telegram_id
-            )
+            select(User).where(User.telegram_id == telegram_id)
         ).scalar_one_or_none()
 
         if not user:
-
             user = User(
                 telegram_id=telegram_id,
-                username=tg_user.get(
-                    "username"
-                ),
-                first_name=tg_user.get(
-                    "first_name"
-                ),
+                username=tg_user.get("username"),
+                first_name=tg_user.get("first_name"),
                 balance=WELCOME_BONUS
             )
-
             db.add(user)
-
             db.flush()
 
             db.add(
@@ -559,25 +372,14 @@ def get_user(init_data):
                     note="First account bonus"
                 )
             )
-
             db.commit()
-
         else:
-
-            user.username = tg_user.get(
-                "username"
-            )
-
-            user.first_name = tg_user.get(
-                "first_name"
-            )
-
+            user.username = tg_user.get("username")
+            user.first_name = tg_user.get("first_name")
             db.commit()
 
         return user
-
     finally:
-
         db.close()
 
 
@@ -586,121 +388,28 @@ def get_user(init_data):
 # =========================================================
 
 PACKAGES = [
-
-    {
-        "id": 1,
-        "price": Decimal("10"),
-        "capacity": Decimal("50"),
-        "rate": Decimal("30")
-    },
-
-    {
-        "id": 2,
-        "price": Decimal("25"),
-        "capacity": Decimal("125"),
-        "rate": Decimal("30")
-    },
-
-    {
-        "id": 3,
-        "price": Decimal("50"),
-        "capacity": Decimal("250"),
-        "rate": Decimal("29")
-    },
-
-    {
-        "id": 4,
-        "price": Decimal("100"),
-        "capacity": Decimal("500"),
-        "rate": Decimal("28")
-    },
-
-    {
-        "id": 5,
-        "price": Decimal("250"),
-        "capacity": Decimal("1250"),
-        "rate": Decimal("28")
-    },
-
-    {
-        "id": 6,
-        "price": Decimal("500"),
-        "capacity": Decimal("2500"),
-        "rate": Decimal("27")
-    },
-
-    {
-        "id": 7,
-        "price": Decimal("1000"),
-        "capacity": Decimal("5000"),
-        "rate": Decimal("27")
-    },
-
-    {
-        "id": 8,
-        "price": Decimal("2500"),
-        "capacity": Decimal("12500"),
-        "rate": Decimal("26")
-    },
-
-    {
-        "id": 9,
-        "price": Decimal("5000"),
-        "capacity": Decimal("25000"),
-        "rate": Decimal("26")
-    },
-
-    {
-        "id": 10,
-        "price": Decimal("10000"),
-        "capacity": Decimal("50000"),
-        "rate": Decimal("25")
-    },
-
-    {
-        "id": 11,
-        "price": Decimal("20000"),
-        "capacity": Decimal("100000"),
-        "rate": Decimal("25")
-    },
-
-    {
-        "id": 12,
-        "price": Decimal("30000"),
-        "capacity": Decimal("150000"),
-        "rate": Decimal("24")
-    },
-
-    {
-        "id": 13,
-        "price": Decimal("50000"),
-        "capacity": Decimal("250000"),
-        "rate": Decimal("23")
-    },
-
-    {
-        "id": 14,
-        "price": Decimal("75000"),
-        "capacity": Decimal("375000"),
-        "rate": Decimal("22")
-    },
-
-    {
-        "id": 15,
-        "price": Decimal("100000"),
-        "capacity": Decimal("500000"),
-        "rate": Decimal("22")
-    }
+    {"id": 1, "price": Decimal("10"), "capacity": Decimal("50"), "rate": Decimal("30")},
+    {"id": 2, "price": Decimal("25"), "capacity": Decimal("125"), "rate": Decimal("30")},
+    {"id": 3, "price": Decimal("50"), "capacity": Decimal("250"), "rate": Decimal("29")},
+    {"id": 4, "price": Decimal("100"), "capacity": Decimal("500"), "rate": Decimal("28")},
+    {"id": 5, "price": Decimal("250"), "capacity": Decimal("1250"), "rate": Decimal("28")},
+    {"id": 6, "price": Decimal("500"), "capacity": Decimal("2500"), "rate": Decimal("27")},
+    {"id": 7, "price": Decimal("1000"), "capacity": Decimal("5000"), "rate": Decimal("27")},
+    {"id": 8, "price": Decimal("2500"), "capacity": Decimal("12500"), "rate": Decimal("26")},
+    {"id": 9, "price": Decimal("5000"), "capacity": Decimal("25000"), "rate": Decimal("26")},
+    {"id": 10, "price": Decimal("10000"), "capacity": Decimal("50000"), "rate": Decimal("25")},
+    {"id": 11, "price": Decimal("20000"), "capacity": Decimal("100000"), "rate": Decimal("25")},
+    {"id": 12, "price": Decimal("30000"), "capacity": Decimal("150000"), "rate": Decimal("24")},
+    {"id": 13, "price": Decimal("50000"), "capacity": Decimal("250000"), "rate": Decimal("23")},
+    {"id": 14, "price": Decimal("75000"), "capacity": Decimal("375000"), "rate": Decimal("22")},
+    {"id": 15, "price": Decimal("100000"), "capacity": Decimal("500000"), "rate": Decimal("22")}
 ]
 
 
-def package(package_id):
-
+def package(package_id: int):
     for p in PACKAGES:
-
         if p["id"] == package_id:
             return p
-
     return None
 
 
@@ -708,11 +417,7 @@ def package(package_id):
 # MINING CALCULATION
 # =========================================================
 
-def update_mining(
-    db,
-    user
-):
-
+def update_mining(db, user):
     positions = db.execute(
         select(MiningPosition).where(
             MiningPosition.user_id == user.id,
@@ -720,55 +425,26 @@ def update_mining(
         )
     ).scalars().all()
 
-    now = datetime.now(
-        timezone.utc
-    )
+    now = datetime.now(timezone.utc)
 
     for position in positions:
-
-        seconds = Decimal(
-            str(
-                max(
-                    0,
-                    (
-                        now -
-                        position.last_update
-                    ).total_seconds()
-                )
-            )
-        )
-
+        seconds = Decimal(str(max(0, (now - position.last_update).total_seconds())))
         if seconds <= 0:
             continue
 
-        daily_rate = (
-            position.daily_rate /
-            Decimal("100")
-        )
-
-        mined = (
-            position.purchase_amount *
-            daily_rate *
-            seconds /
-            Decimal("86400")
-        )
+        daily_rate = position.daily_rate / Decimal("100")
+        mined = position.purchase_amount * daily_rate * seconds / Decimal("86400")
 
         if mined > position.remaining_capacity:
-
             mined = position.remaining_capacity
 
         if mined > 0:
-
             position.remaining_capacity -= mined
-
             user.unclaimed_mining += mined
-
             position.last_update = now
 
             if position.remaining_capacity <= 0:
-
                 position.remaining_capacity = Decimal("0")
-
                 position.active = False
 
             db.add(
@@ -784,12 +460,11 @@ def update_mining(
 
 
 # =========================================================
-# HOME
+# API ROUTES
 # =========================================================
 
 @app.get("/")
 def root():
-
     return {
         "name": "Falcon Mining Bot",
         "bot": "@GlobalEarnnn_Bot",
@@ -797,212 +472,89 @@ def root():
     }
 
 
-# =========================================================
-# ME
-# =========================================================
-
 @app.get("/api/me")
-def me(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    user = get_user(
-        x_telegram_init_data
-    )
-
+def me(x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
     return {
-
-        "telegram_id":
-            user.telegram_id,
-
-        "username":
-            user.username,
-
-        "balance":
-            str(user.balance),
-
-        "unclaimed_mining":
-            str(user.unclaimed_mining)
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "balance": str(user.balance),
+        "unclaimed_mining": str(user.unclaimed_mining)
     }
 
 
-# =========================================================
-# MINING
-# =========================================================
-
 @app.get("/api/mining")
-def mining(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    user = get_user(
-        x_telegram_init_data
-    )
-
+def mining(x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
     db = SessionLocal()
-
     try:
-
-        update_mining(
-            db,
-            user
-        )
-
+        update_mining(db, user)
         positions = db.execute(
-            select(MiningPosition).where(
-                MiningPosition.user_id == user.id
-            )
+            select(MiningPosition).where(MiningPosition.user_id == user.id)
         ).scalars().all()
 
         return {
-
-            "balance":
-                str(user.balance),
-
-            "unclaimed":
-                str(user.unclaimed_mining),
-
+            "balance": str(user.balance),
+            "unclaimed": str(user.unclaimed_mining),
             "positions": [
-
                 {
-                    "id":
-                        p.id,
-
-                    "package":
-                        p.package_id,
-
-                    "purchase":
-                        str(p.purchase_amount),
-
-                    "capacity":
-                        str(p.total_capacity),
-
-                    "remaining":
-                        str(p.remaining_capacity),
-
-                    "mined":
-                        str(
-                            p.total_capacity -
-                            p.remaining_capacity
-                        ),
-
-                    "rate":
-                        str(p.daily_rate),
-
-                    "active":
-                        p.active
+                    "id": p.id,
+                    "package": p.package_id,
+                    "purchase": str(p.purchase_amount),
+                    "capacity": str(p.total_capacity),
+                    "remaining": str(p.remaining_capacity),
+                    "mined": str(p.total_capacity - p.remaining_capacity),
+                    "rate": str(p.daily_rate),
+                    "active": p.active
                 }
-
                 for p in positions
             ]
         }
-
     finally:
-
         db.close()
 
 
-# =========================================================
-# PACKAGES
-# =========================================================
-
 @app.get("/api/packages")
 def packages():
-
     return [
-
         {
-            "id":
-                p["id"],
-
-            "price":
-                str(p["price"]),
-
-            "capacity":
-                str(p["capacity"]),
-
-            "rate":
-                str(p["rate"])
+            "id": p["id"],
+            "price": str(p["price"]),
+            "capacity": str(p["capacity"]),
+            "rate": str(p["rate"])
         }
-
         for p in PACKAGES
     ]
 
 
-# =========================================================
-# BUY CAPACITY
-# =========================================================
-
 @app.post("/api/capacity/{package_id}")
-def buy_capacity(
-    package_id: int,
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    user = get_user(
-        x_telegram_init_data
-    )
-
+def buy_capacity(package_id: int, x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
     db = SessionLocal()
-
     try:
-
-        update_mining(
-            db,
-            user
-        )
-
-        p = package(
-            package_id
-        )
+        update_mining(db, user)
+        p = package(package_id)
 
         if not p:
-
-            raise HTTPException(
-                404,
-                "Capacity package not found"
-            )
+            raise HTTPException(404, "Capacity package not found")
 
         if user.balance < p["price"]:
-
-            raise HTTPException(
-                400,
-                "Insufficient FLC"
-            )
+            raise HTTPException(400, "Insufficient FLC")
 
         user.balance -= p["price"]
 
         position = MiningPosition(
-
             user_id=user.id,
-
             package_id=p["id"],
-
             purchase_amount=p["price"],
-
             total_capacity=p["capacity"],
-
             remaining_capacity=p["capacity"],
-
             daily_rate=p["rate"],
-
-            last_update=datetime.now(
-                timezone.utc
-            ),
-
+            last_update=datetime.now(timezone.utc),
             active=True
         )
 
-        db.add(
-            position
-        )
-
+        db.add(position)
         db.add(
             Ledger(
                 user_id=user.id,
@@ -1011,62 +563,33 @@ def buy_capacity(
                 note=f"Capacity package {p['id']}"
             )
         )
-
         db.commit()
 
         return {
-
             "success": True,
-
-            "balance":
-                str(user.balance),
-
-            "capacity":
-                str(p["capacity"])
+            "balance": str(user.balance),
+            "capacity": str(p["capacity"])
         }
-
     finally:
-
         db.close()
 
 
-# =========================================================
-# COLLECT
-# =========================================================
-
 @app.post("/api/collect")
-def collect(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    user = get_user(
-        x_telegram_init_data
-    )
-
+def collect(x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
     db = SessionLocal()
-
     try:
-
-        update_mining(
-            db,
-            user
-        )
-
+        update_mining(db, user)
         amount = user.unclaimed_mining
 
         if amount <= 0:
-
             return {
                 "success": True,
                 "collected": "0",
-                "balance":
-                    str(user.balance)
+                "balance": str(user.balance)
             }
 
         user.unclaimed_mining = Decimal("0")
-
         user.balance += amount
 
         db.add(
@@ -1077,298 +600,134 @@ def collect(
                 note="Collected mining balance"
             )
         )
-
         db.commit()
 
         return {
-
             "success": True,
-
-            "collected":
-                str(amount),
-
-            "balance":
-                str(user.balance)
+            "collected": str(amount),
+            "balance": str(user.balance)
         }
-
     finally:
-
         db.close()
 
 
-# =========================================================
-# REFERRALS
-# =========================================================
-
 @app.get("/api/referral")
-def referral(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    user = get_user(
-        x_telegram_init_data
-    )
-
+def referral(x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
     db = SessionLocal()
-
     try:
-
         count = db.execute(
-            select(
-                func.count(Referral.id)
-            ).where(
-                Referral.inviter_id ==
-                user.id
-            )
+            select(func.count(Referral.id)).where(Referral.inviter_id == user.id)
         ).scalar()
 
         total = db.execute(
-            select(
-                func.coalesce(
-                    func.sum(
-                        Referral.reward
-                    ),
-                    0
-                )
-            ).where(
-                Referral.inviter_id ==
-                user.id
+            select(func.coalesce(func.sum(Referral.reward), 0)).where(
+                Referral.inviter_id == user.id
             )
         ).scalar()
 
         return {
-
-            "count":
-                count or 0,
-
-            "reward":
-                str(total or 0),
-
-            "per_referral":
-                str(REFERRAL_REWARD),
-
-            "link":
-                f"https://t.me/GlobalEarnnn_Bot?start=ref_{user.telegram_id}"
+            "count": count or 0,
+            "reward": str(total or 0),
+            "per_referral": str(REFERRAL_REWARD),
+            "link": f"https://t.me/GlobalEarnnn_Bot?start=ref_{user.telegram_id}"
         }
-
     finally:
-
         db.close()
 
-
-# =========================================================
-# DEPOSIT WALLETS
-# =========================================================
 
 @app.get("/api/deposit-wallets")
 def deposit_wallets():
-
     db = SessionLocal()
-
     try:
-
         wallets = db.execute(
-            select(WalletConfig).where(
-                WalletConfig.active == True
-            )
+            select(WalletConfig).where(WalletConfig.active == True)
         ).scalars().all()
 
-        return [
-
-            {
-                "network":
-                    w.network,
-
-                "address":
-                    w.address
-            }
-
-            for w in wallets
-        ]
-
+        return [{"network": w.network, "address": w.address} for w in wallets]
     finally:
-
         db.close()
 
 
-# =========================================================
-# DEPOSIT SUBMISSION
-# =========================================================
-
 @app.post("/api/deposit")
-def deposit(
-    data: dict,
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
+def deposit(data: dict, x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
 
-    user = get_user(
-        x_telegram_init_data
-    )
-
-    network = str(
-        data.get("network", "")
-    ).strip()
-
-    txid = str(
-        data.get("txid", "")
-    ).strip()
-
-    amount = Decimal(
-        str(
-            data.get(
-                "amount",
-                "0"
-            )
-        )
-    )
-
-    if not network:
-        raise HTTPException(
-            400,
-            "Network required"
-        )
-
-    if not txid:
-        raise HTTPException(
-            400,
-            "TXID required"
-        )
-
-    if amount <= 0:
-        raise HTTPException(
-            400,
-            "Amount must be greater than zero"
-        )
-
-    db = SessionLocal()
+    network = str(data.get("network", "")).strip()
+    txid = str(data.get("txid", "")).strip()
 
     try:
+        amount = Decimal(str(data.get("amount", "0")))
+    except InvalidOperation:
+        raise HTTPException(400, "Invalid amount format")
 
+    if not network or not txid:
+        raise HTTPException(400, "Network and TXID required")
+
+    if amount <= 0:
+        raise HTTPException(400, "Amount must be greater than zero")
+
+    db = SessionLocal()
+    try:
         existing = db.execute(
-            select(Deposit).where(
-                Deposit.txid == txid
-            )
+            select(Deposit).where(Deposit.txid == txid)
         ).scalar_one_or_none()
 
         if existing:
-
-            raise HTTPException(
-                409,
-                "Transaction already submitted"
-            )
+            raise HTTPException(409, "Transaction already submitted")
 
         db.add(
             Deposit(
-
                 user_id=user.id,
-
                 network=network,
-
                 crypto_amount=amount,
-
                 txid=txid,
-
                 status="pending"
             )
         )
-
         db.commit()
 
-        return {
-            "success": True,
-            "status": "pending"
-        }
-
+        return {"success": True, "status": "pending"}
     finally:
-
         db.close()
 
 
-# =========================================================
-# WITHDRAW
-# =========================================================
-
 @app.post("/api/withdraw")
-def withdraw(
-    data: dict,
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
+def withdraw(data: dict, x_telegram_init_data: str = Header(default="")):
+    user = get_user(x_telegram_init_data)
 
-    user = get_user(
-        x_telegram_init_data
-    )
-
-    network = str(
-        data.get("network", "")
-    ).strip()
-
-    wallet = str(
-        data.get("wallet", "")
-    ).strip()
-
-    amount = Decimal(
-        str(
-            data.get(
-                "amount",
-                "0"
-            )
-        )
-    )
-
-    if amount < MIN_WITHDRAWAL:
-
-        raise HTTPException(
-            400,
-            f"Minimum withdrawal is {MIN_WITHDRAWAL} FLC"
-        )
-
-    if amount > user.balance:
-
-        raise HTTPException(
-            400,
-            "Insufficient FLC balance"
-        )
-
-    if not network or not wallet:
-
-        raise HTTPException(
-            400,
-            "Network and wallet required"
-        )
-
-    db = SessionLocal()
+    network = str(data.get("network", "")).strip()
+    wallet = str(data.get("wallet", "")).strip()
 
     try:
+        amount = Decimal(str(data.get("amount", "0")))
+    except InvalidOperation:
+        raise HTTPException(400, "Invalid amount format")
 
+    if amount < MIN_WITHDRAWAL:
+        raise HTTPException(400, f"Minimum withdrawal is {MIN_WITHDRAWAL} FLC")
+
+    if amount > user.balance:
+        raise HTTPException(400, "Insufficient FLC balance")
+
+    if not network or not wallet:
+        raise HTTPException(400, "Network and wallet required")
+
+    db = SessionLocal()
+    try:
         user.balance -= amount
-
         user.withdrawal_wallet = wallet
-
         user.withdrawal_network = network
 
         withdrawal = Withdrawal(
-
             user_id=user.id,
-
             network=network,
-
             wallet=wallet,
-
             amount=amount,
-
             status="pending"
         )
 
-        db.add(
-            withdrawal
-        )
-
+        db.add(withdrawal)
         db.add(
             Ledger(
                 user_id=user.id,
@@ -1377,23 +736,14 @@ def withdraw(
                 note="Withdrawal request"
             )
         )
-
         db.commit()
 
         return {
-
-            "success":
-                True,
-
-            "status":
-                "pending",
-
-            "withdrawal_id":
-                withdrawal.id
+            "success": True,
+            "status": "pending",
+            "withdrawal_id": withdrawal.id
         }
-
     finally:
-
         db.close()
 
 
@@ -1401,1810 +751,547 @@ def withdraw(
 # ADMIN
 # =========================================================
 
-def is_admin(admin_id):
-
-    ids = os.getenv(
-        "ADMIN_IDS",
-        ""
-    ).split(",")
-
-    return str(admin_id) in [
-        x.strip()
-        for x in ids
-    ]
+def is_admin(admin_id: str):
+    ids = os.getenv("ADMIN_IDS", "").split(",")
+    return str(admin_id) in [x.strip() for x in ids]
 
 
 @app.post("/api/admin/wallet")
-def admin_wallet(
-    data: dict,
-    x_admin_id: str = Header(
-        default=""
-    )
-):
+def admin_wallet(data: dict, x_admin_id: str = Header(default="")):
+    if not is_admin(x_admin_id):
+        raise HTTPException(403, "Admin only")
 
-    if not is_admin(
-        x_admin_id
-    ):
-
-        raise HTTPException(
-            403,
-            "Admin only"
-        )
-
-    network = str(
-        data.get("network", "")
-    ).strip()
-
-    address = str(
-        data.get("address", "")
-    ).strip()
+    network = str(data.get("network", "")).strip()
+    address = str(data.get("address", "")).strip()
 
     if not network or not address:
-
-        raise HTTPException(
-            400,
-            "Network and address required"
-        )
+        raise HTTPException(400, "Network and address required")
 
     db = SessionLocal()
-
     try:
-
         wallet = db.execute(
-            select(WalletConfig).where(
-                WalletConfig.network ==
-                network
-            )
+            select(WalletConfig).where(WalletConfig.network == network)
         ).scalar_one_or_none()
 
         if wallet:
-
             wallet.address = address
-
             wallet.active = True
-
         else:
-
-            db.add(
-                WalletConfig(
-                    network=network,
-                    address=address,
-                    active=True
-                )
-            )
+            db.add(WalletConfig(network=network, address=address, active=True))
 
         db.commit()
-
-        return {
-            "success": True
-        }
-
+        return {"success": True}
     finally:
-
         db.close()
 
 
 @app.get("/api/admin/stats")
-def admin_stats(
-    x_admin_id: str = Header(
-        default=""
-    )
-):
-
-    if not is_admin(
-        x_admin_id
-    ):
-
-        raise HTTPException(
-            403,
-            "Admin only"
-        )
+def admin_stats(x_admin_id: str = Header(default="")):
+    if not is_admin(x_admin_id):
+        raise HTTPException(403, "Admin only")
 
     db = SessionLocal()
-
     try:
-
-        users = db.execute(
-            select(
-                func.count(User.id)
-            )
-        ).scalar()
-
+        users = db.execute(select(func.count(User.id))).scalar()
         pending_deposits = db.execute(
-            select(
-                func.count(Deposit.id)
-            ).where(
-                Deposit.status ==
-                "pending"
-            )
+            select(func.count(Deposit.id)).where(Deposit.status == "pending")
         ).scalar()
-
         pending_withdrawals = db.execute(
-            select(
-                func.count(Withdrawal.id)
-            ).where(
-                Withdrawal.status ==
-                "pending"
-            )
+            select(func.count(Withdrawal.id)).where(Withdrawal.status == "pending")
         ).scalar()
 
         return {
-
-            "users":
-                users or 0,
-
-            "pending_deposits":
-                pending_deposits or 0,
-
-            "pending_withdrawals":
-                pending_withdrawals or 0
+            "users": users or 0,
+            "pending_deposits": pending_deposits or 0,
+            "pending_withdrawals": pending_withdrawals or 0
         }
-
     finally:
-
         db.close()
 
 
 # =========================================================
-# MINI APP
+# MINI APP MOUNT
 # =========================================================
 
-app.mount(
-    "/app",
-    StaticFiles(
-        directory="miniapp",
-        html=True
-    ),
-    name="miniapp"
-)
+app.mount("/app", StaticFiles(directory="miniapp", html=True), name="miniapp")
 PY
 
 
 # =========================================================
-# BOT
+# app/bot/main.py
 # =========================================================
 
 cat > app/bot/main.py <<'PY'
 import asyncio
 import os
+import re
+from decimal import Decimal
 
-from aiogram import (
-    Bot,
-    Dispatcher,
-    Router
-)
+from aiogram import Bot, Dispatcher, Router
+from aiogram.filters import CommandStart, CommandObject
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-from aiogram.filters import CommandStart
+from app.main import SessionLocal, User, Referral, Ledger, REFERRAL_REWARD, select
 
-from aiogram.types import (
-    Message,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    WebAppInfo
-)
-
-
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN"
-)
-
-WEBAPP_URL = os.getenv(
-    "WEBAPP_URL"
-)
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBAPP_URL = os.getenv("WEBAPP_URL")
 
 router = Router()
 
 
-@router.message(
-    CommandStart()
-)
-async def start(
-    message: Message
-):
+@router.message(CommandStart())
+async def start(message: Message, command: CommandObject):
+    telegram_id = message.from_user.id
+    args = command.args
+
+    # Check for referral payload: ref_12345
+    if args and args.startswith("ref_"):
+        try:
+            inviter_tg_id = int(args.replace("ref_", ""))
+            if inviter_tg_id != telegram_id:
+                db = SessionLocal()
+                try:
+                    inviter = db.execute(
+                        select(User).where(User.telegram_id == inviter_tg_id)
+                    ).scalar_one_or_none()
+
+                    invitee = db.execute(
+                        select(User).where(User.telegram_id == telegram_id)
+                    ).scalar_one_or_none()
+
+                    # Process referral if user is new and inviter exists
+                    if inviter and not invitee:
+                        new_user = User(
+                            telegram_id=telegram_id,
+                            username=message.from_user.username,
+                            first_name=message.from_user.first_name,
+                            referred_by=inviter.telegram_id,
+                            balance=Decimal(os.getenv("WELCOME_BONUS", "1000"))
+                        )
+                        db.add(new_user)
+                        db.flush()
+
+                        # Grant referral bonus
+                        inviter.balance += REFERRAL_REWARD
+                        db.add(
+                            Referral(
+                                inviter_id=inviter.id,
+                                invitee_id=new_user.id,
+                                reward=REFERRAL_REWARD
+                            )
+                        )
+                        db.add(
+                            Ledger(
+                                user_id=inviter.id,
+                                action="referral_reward",
+                                amount=REFERRAL_REWARD,
+                                note=f"Invited user {telegram_id}"
+                            )
+                        )
+                        db.commit()
+                except Exception as e:
+                    db.rollback()
+                finally:
+                    db.close()
+        except ValueError:
+            pass
 
     keyboard = InlineKeyboardMarkup(
-
         inline_keyboard=[
-
             [
-
                 InlineKeyboardButton(
-
                     text="🦅 Open Falcon Mining",
-
-                    web_app=WebAppInfo(
-
-                        url=WEBAPP_URL
-                    )
+                    web_app=WebAppInfo(url=WEBAPP_URL)
                 )
             ]
         ]
     )
 
     await message.answer(
-
         "🦅 <b>Welcome to Falcon Mining!</b>\n\n"
-
         "🎁 <b>1,000 FLC</b> Welcome Bonus\n\n"
-
         "⛏️ Buy Mining Capacity\n"
-
         "⚡ Start Mining\n\n"
-
         "💰 Collect your FLC\n\n"
-
         "👥 Invite Friends",
-
         reply_markup=keyboard,
-
         parse_mode="HTML"
     )
 
 
 async def main():
-
     if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN is missing")
 
-        raise RuntimeError(
-            "BOT_TOKEN is missing"
-        )
-
-    bot = Bot(
-        BOT_TOKEN
-    )
-
+    bot = Bot(BOT_TOKEN)
     dp = Dispatcher()
+    dp.include_router(router)
 
-    dp.include_router(
-        router
-    )
-
-    await dp.start_polling(
-        bot
-    )
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-
-    asyncio.run(
-        main()
-    )
+    asyncio.run(main())
 PY
 
 
 # =========================================================
-# MINI APP
+# miniapp/index.html
 # =========================================================
 
 cat > miniapp/index.html <<'HTML'
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-name="viewport"
-content="width=device-width,initial-scale=1,maximum-scale=1"
->
-
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Falcon Mining</title>
-
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-
 <style>
-
-*{
-box-sizing:border-box;
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: radial-gradient(circle at top, #164d78, #07111e 50%, #030810);
+  color: white;
+  padding-bottom: 90px;
 }
-
-body{
-
-margin:0;
-
-font-family:
-
-Arial,
-sans-serif;
-
-background:
-
-radial-gradient(
-circle at top,
-#164d78,
-#07111e 50%,
-#030810
-);
-
-color:white;
-
-padding-bottom:90px;
-
+.container { max-width: 550px; margin: auto; padding: 15px; }
+.header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
+.logo {
+  width: 55px; height: 55px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+  background: linear-gradient(135deg, #ffd85b, #1489df);
 }
-
-.container{
-
-max-width:550px;
-
-margin:auto;
-
-padding:15px;
-
+.title { font-size: 22px; font-weight: bold; }
+.subtitle { font-size: 12px; color: #8da8c2; }
+.card {
+  background: rgba(12, 29, 48, .94);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 22px; padding: 17px; margin-bottom: 13px;
 }
-
-.header{
-
-display:flex;
-
-align-items:center;
-
-gap:12px;
-
-margin-bottom:15px;
-
+.balance { font-size: 34px; font-weight: bold; margin: 5px 0 15px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { background: #071524; padding: 13px; border-radius: 15px; }
+.stat-title { color: #8ca5bd; font-size: 12px; }
+.stat-value { font-weight: bold; margin-top: 5px; }
+.position { background: #071524; padding: 13px; border-radius: 15px; margin-top: 10px; }
+.progress { height: 9px; background: #193047; border-radius: 20px; overflow: hidden; margin-top: 9px; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, #1aa8ff, #f4c65c); }
+button {
+  width: 100%; padding: 14px; border: 0; border-radius: 15px; margin-top: 9px;
+  font-weight: bold; background: linear-gradient(90deg, #18a4f5, #f4c65c); color: #06101c;
+  cursor: pointer;
 }
-
-.logo{
-
-width:55px;
-
-height:55px;
-
-border-radius:18px;
-
-display:flex;
-
-align-items:center;
-
-justify-content:center;
-
-font-size:30px;
-
-background:
-
-linear-gradient(
-135deg,
-#ffd85b,
-#1489df
-);
-
+.secondary { background: #10243a; color: white; }
+.package { background: #071524; padding: 14px; border-radius: 17px; margin-top: 10px; }
+.package-price { font-size: 18px; font-weight: bold; }
+.gold { color: #f5cc63; }
+.muted { color: #8da5bc; }
+input {
+  width: 100%; padding: 13px; border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  background: #071524; color: white; margin-top: 8px;
 }
-
-.title{
-
-font-size:22px;
-
-font-weight:bold;
-
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 5px; padding: 8px;
+  background: rgba(4, 15, 26, .95); border-top: 1px solid rgba(255, 255, 255, .1);
 }
-
-.subtitle{
-
-font-size:12px;
-
-color:#8da8c2;
-
+.nav button { width: auto; margin: 0; padding: 10px 12px; background: #10243a; color: white; }
+.hidden { display: none; }
+.toast {
+  position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+  background: #132b42; padding: 11px 16px; border-radius: 14px; display: none; z-index: 100;
 }
-
-.card{
-
-background:
-
-rgba(
-12,
-29,
-48,
-.94
-);
-
-border:
-
-1px solid
-rgba(
-255,
-255,
-255,
-.08
-);
-
-border-radius:22px;
-
-padding:17px;
-
-margin-bottom:13px;
-
-}
-
-.balance{
-
-font-size:34px;
-
-font-weight:bold;
-
-margin:
-
-5px
-0
-15px;
-
-}
-
-.grid{
-
-display:grid;
-
-grid-template-columns:
-1fr
-1fr;
-
-gap:10px;
-
-}
-
-.stat{
-
-background:#071524;
-
-padding:13px;
-
-border-radius:15px;
-
-}
-
-.stat-title{
-
-color:#8ca5bd;
-
-font-size:12px;
-
-}
-
-.stat-value{
-
-font-weight:bold;
-
-margin-top:5px;
-
-}
-
-.position{
-
-background:#071524;
-
-padding:13px;
-
-border-radius:15px;
-
-margin-top:10px;
-
-}
-
-.progress{
-
-height:9px;
-
-background:#193047;
-
-border-radius:20px;
-
-overflow:hidden;
-
-margin-top:9px;
-
-}
-
-.progress-bar{
-
-height:100%;
-
-background:
-
-linear-gradient(
-90deg,
-#1aa8ff,
-#f4c65c
-);
-
-}
-
-button{
-
-width:100%;
-
-padding:14px;
-
-border:0;
-
-border-radius:15px;
-
-margin-top:9px;
-
-font-weight:bold;
-
-background:
-
-linear-gradient(
-90deg,
-#18a4f5,
-#f4c65c
-);
-
-color:#06101c;
-
-}
-
-.secondary{
-
-background:#10243a;
-
-color:white;
-
-}
-
-.package{
-
-background:#071524;
-
-padding:14px;
-
-border-radius:17px;
-
-margin-top:10px;
-
-}
-
-.package-price{
-
-font-size:18px;
-
-font-weight:bold;
-
-}
-
-.gold{
-
-color:#f5cc63;
-
-}
-
-.muted{
-
-color:#8da5bc;
-
-}
-
-input{
-
-width:100%;
-
-padding:13px;
-
-border-radius:13px;
-
-border:
-
-1px solid
-rgba(
-255,
-255,
-255,
-.1
-);
-
-background:#071524;
-
-color:white;
-
-margin-top:8px;
-
-}
-
-.nav{
-
-position:fixed;
-
-bottom:0;
-
-left:0;
-
-right:0;
-
-display:flex;
-
-justify-content:center;
-
-gap:5px;
-
-padding:8px;
-
-background:
-
-rgba(
-4,
-15,
-26,
-.95
-);
-
-border-top:
-
-1px solid
-rgba(
-255,
-255,
-255,
-.1
-);
-
-}
-
-.nav button{
-
-width:auto;
-
-margin:0;
-
-padding:
-
-10px
-12px;
-
-background:#10243a;
-
-color:white;
-
-}
-
-.hidden{
-
-display:none;
-
-}
-
-.toast{
-
-position:fixed;
-
-top:15px;
-
-left:50%;
-
-transform:translateX(-50%);
-
-background:#132b42;
-
-padding:11px 16px;
-
-border-radius:14px;
-
-display:none;
-
-z-index:100;
-
-}
-
 </style>
-
 </head>
 
-
 <body>
-
-
-<div
-id="toast"
-class="toast"
-></div>
-
+<div id="toast" class="toast"></div>
 
 <div class="container">
+  <div class="header">
+    <div class="logo">🦅</div>
+    <div>
+      <div class="title">Falcon Mining</div>
+      <div class="subtitle">@GlobalEarnnn_Bot</div>
+    </div>
+  </div>
 
+  <!-- HOME -->
+  <section id="home" class="card">
+    <div class="muted">Available FLC</div>
+    <div id="balance" class="balance">0.000000 FLC</div>
 
-<div class="header">
+    <div class="grid">
+      <div class="stat">
+        <div class="stat-title">⛏️ Unclaimed Mining</div>
+        <div id="unclaimed" class="stat-value">0.000000 FLC</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">📦 Mining Positions</div>
+        <div id="positionsCount" class="stat-value">0</div>
+      </div>
+    </div>
 
-<div class="logo">
-🦅
+    <h3 style="margin-top:20px;">⚡ Mining Capacity</h3>
+    <div id="miningPositions"></div>
+    <button onclick="collect()">💰 Collect All</button>
+  </section>
+
+  <!-- SHOP -->
+  <section id="shop" class="card hidden">
+    <h2>🪙 Capacity Shop</h2>
+    <p class="muted">
+      Mining and Mining Capacity are separate.
+      Capacity is the maximum FLC that a position can mine.
+    </p>
+    <div id="packages"></div>
+  </section>
+
+  <!-- WALLET -->
+  <section id="wallet" class="card hidden">
+    <h2>💳 Wallet</h2>
+    <p class="muted">Deposit wallet and withdrawal wallet are separate.</p>
+
+    <h3>Deposit</h3>
+    <div id="depositWallets" class="muted">Loading...</div>
+    <input id="depositNetwork" placeholder="Network" />
+    <input id="depositAmount" type="number" step="any" placeholder="Crypto Amount" />
+    <input id="depositTx" placeholder="Transaction ID" />
+    <button onclick="submitDeposit()">Submit Deposit</button>
+
+    <h3 style="margin-top:20px;">Withdrawal</h3>
+    <input id="withdrawNetwork" placeholder="Withdrawal Network" />
+    <input id="withdrawWallet" placeholder="Your Wallet Address" />
+    <input id="withdrawAmount" type="number" step="any" placeholder="FLC Amount" />
+    <button onclick="submitWithdraw()">Request Withdrawal</button>
+  </section>
+
+  <!-- REFERRAL -->
+  <section id="referral" class="card hidden">
+    <h2>👥 Partners</h2>
+    <div id="referralInfo" class="muted">Loading...</div>
+    <button onclick="copyReferral()">📋 Copy Referral Link</button>
+  </section>
 </div>
-
-<div>
-
-<div class="title">
-Falcon Mining
-</div>
-
-<div class="subtitle">
-@GlobalEarnnn_Bot
-</div>
-
-</div>
-
-</div>
-
-
-<!-- HOME -->
-
-<section
-id="home"
-class="card"
->
-
-<div class="muted">
-Available FLC
-</div>
-
-<div
-id="balance"
-class="balance"
->
-0.000000 FLC
-</div>
-
-
-<div class="grid">
-
-
-<div class="stat">
-
-<div class="stat-title">
-⛏️ Unclaimed Mining
-</div>
-
-<div
-id="unclaimed"
-class="stat-value"
->
-0.000000 FLC
-</div>
-
-</div>
-
-
-<div class="stat">
-
-<div class="stat-title">
-📦 Mining Positions
-</div>
-
-<div
-id="positionsCount"
-class="stat-value"
->
-0
-</div>
-
-</div>
-
-
-</div>
-
-
-<h3>
-⚡ Mining Capacity
-</h3>
-
-
-<div
-id="miningPositions"
-></div>
-
-
-<button
-onclick="collect()"
->
-💰 Collect All
-</button>
-
-
-</section>
-
-
-
-<!-- SHOP -->
-
-<section
-id="shop"
-class="card hidden"
->
-
-<h2>
-🪙 Capacity Shop
-</h2>
-
-<p class="muted">
-
-Mining and Mining Capacity are
-separate.
-
-Capacity is the maximum FLC
-that a position can mine.
-
-</p>
-
-
-<div
-id="packages"
-></div>
-
-
-</section>
-
-
-
-<!-- WALLET -->
-
-<section
-id="wallet"
-class="card hidden"
->
-
-<h2>
-💳 Wallet
-</h2>
-
-<p class="muted">
-
-Deposit wallet and withdrawal
-wallet are separate.
-
-</p>
-
-
-<h3>
-Deposit
-</h3>
-
-
-<div
-id="depositWallets"
-class="muted"
->
-Loading...
-</div>
-
-
-<input
-id="depositNetwork"
-placeholder="Network"
-/>
-
-
-<input
-id="depositAmount"
-type="number"
-step="any"
-placeholder="Crypto Amount"
-/>
-
-
-<input
-id="depositTx"
-placeholder="Transaction ID"
-/>
-
-
-<button
-onclick="submitDeposit()"
->
-Submit Deposit
-</button>
-
-
-<h3>
-Withdrawal
-</h3>
-
-
-<input
-id="withdrawNetwork"
-placeholder="Withdrawal Network"
-/>
-
-
-<input
-id="withdrawWallet"
-placeholder="Your Wallet Address"
-/>
-
-
-<input
-id="withdrawAmount"
-type="number"
-step="any"
-placeholder="FLC Amount"
-/>
-
-
-<button
-onclick="submitWithdraw()"
->
-Request Withdrawal
-</button>
-
-
-</section>
-
-
-
-<!-- REFERRAL -->
-
-<section
-id="referral"
-class="card hidden"
->
-
-<h2>
-👥 Partners
-</h2>
-
-
-<div
-id="referralInfo"
-class="muted"
->
-Loading...
-</div>
-
-
-<button
-onclick="copyReferral()"
->
-📋 Copy Referral Link
-</button>
-
-
-</section>
-
-
-</div>
-
-
 
 <div class="nav">
-
-<button
-onclick="showPage('home')"
->
-🏠 Home
-</button>
-
-
-<button
-onclick="showPage('shop')"
->
-⛏️ Shop
-</button>
-
-
-<button
-onclick="showPage('wallet')"
->
-💳 Wallet
-</button>
-
-
-<button
-onclick="showPage('referral')"
->
-👥 Refer
-</button>
-
+  <button onclick="showPage('home')">🏠 Home</button>
+  <button onclick="showPage('shop')">⛏️ Shop</button>
+  <button onclick="showPage('wallet')">💳 Wallet</button>
+  <button onclick="showPage('referral')">👥 Refer</button>
 </div>
-
-
 
 <script>
-
-
-const tg =
-window.Telegram.WebApp;
-
-
+const tg = window.Telegram.WebApp;
 tg.ready();
-
 tg.expand();
 
-
-
-function headers(){
-
-return {
-
-"Content-Type":
-"application/json",
-
-"X-Telegram-Init-Data":
-tg.initData
-
-};
-
+function headers() {
+  return {
+    "Content-Type": "application/json",
+    "X-Telegram-Init-Data": tg.initData || ""
+  };
 }
 
-
-
-async function api(
-url,
-options={}
-){
-
-const response =
-await fetch(
-url,
-{
-
-...options,
-
-headers:{
-...headers(),
-...(options.headers || {})
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...headers(), ...(options.headers || {}) }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Request failed");
+  }
+  return data;
 }
 
-}
-);
-
-
-const data =
-await response
-.json()
-.catch(
-()=>({})
-);
-
-
-if(!response.ok){
-
-throw new Error(
-data.detail ||
-"Request failed"
-);
-
+function toast(message) {
+  const el = document.getElementById("toast");
+  el.innerText = message;
+  el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 2500);
 }
 
-
-return data;
-
+function format(value) {
+  return Number(value || 0).toFixed(6);
 }
 
+function showPage(page) {
+  ["home", "shop", "wallet", "referral"].forEach(id => {
+    document.getElementById(id).classList.toggle("hidden", id !== page);
+  });
 
-
-function toast(
-message
-){
-
-const el =
-document.getElementById(
-"toast"
-);
-
-el.innerText =
-message;
-
-el.style.display =
-"block";
-
-setTimeout(
-()=>{
-
-el.style.display =
-"none";
-
-},
-2500
-);
-
+  if (page === "shop") loadPackages();
+  if (page === "wallet") loadWallets();
+  if (page === "referral") loadReferral();
 }
 
+async function loadMining(silent = false) {
+  try {
+    const data = await api("/api/mining");
+    document.getElementById("balance").innerText = format(data.balance) + " FLC";
+    document.getElementById("unclaimed").innerText = format(data.unclaimed) + " FLC";
+    document.getElementById("positionsCount").innerText = data.positions.length;
 
+    const box = document.getElementById("miningPositions");
+    if (data.positions.length === 0) {
+      box.innerHTML = `<div class="muted">No Mining Capacity yet. Go to Shop and buy your first Capacity.</div>`;
+      return;
+    }
 
-function format(
-value
-){
+    box.innerHTML = data.positions.map(p => {
+      const total = Number(p.capacity);
+      const mined = Number(p.mined);
+      const percent = total > 0 ? Math.min(100, (mined / total) * 100) : 0;
 
-return Number(
-value || 0
-).toFixed(6);
-
+      return `
+        <div class="position">
+          <div style="display:flex; justify-content:space-between;">
+            <b>Capacity #${p.id}</b>
+            <span class="gold">${p.active ? "● Mining" : "● Finished"}</span>
+          </div>
+          <div class="muted">${format(mined)} / ${format(total)} FLC</div>
+          <div class="progress">
+            <div class="progress-bar" style="width:${percent}%"></div>
+          </div>
+          <div class="muted" style="margin-top:8px;">
+            Remaining: ${format(p.remaining)} FLC<br>
+            Mining Rate: ${format(p.rate)}% / day
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (error) {
+    if (!silent) toast(error.message);
+  }
 }
 
-
-
-function showPage(
-page
-){
-
-[
-"home",
-"shop",
-"wallet",
-"referral"
-]
-.forEach(
-id=>{
-
-document
-.getElementById(id)
-.classList
-.toggle(
-"hidden",
-id !== page
-);
-
-}
-);
-
-
-if(page==="shop")
-loadPackages();
-
-
-if(page==="wallet")
-loadWallets();
-
-
-if(page==="referral")
-loadReferral();
-
+async function loadPackages() {
+  try {
+    const packages = await api("/api/packages");
+    document.getElementById("packages").innerHTML = packages.map(p => `
+      <div class="package">
+        <div class="gold">LEVEL ${p.id}</div>
+        <div class="package-price">${format(p.price)} FLC → ${format(p.capacity)} FLC Capacity</div>
+        <div class="muted">Mining: ${format(p.rate)}% / day</div>
+        <button onclick="buyCapacity(${p.id})">Buy Capacity</button>
+      </div>
+    `).join("");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
-
-
-async function loadMining(){
-
-try{
-
-const data =
-await api(
-"/api/mining"
-);
-
-
-document
-.getElementById(
-"balance"
-)
-.innerText =
-format(
-data.balance
-)
-+
-" FLC";
-
-
-document
-.getElementById(
-"unclaimed"
-)
-.innerText =
-format(
-data.unclaimed
-)
-+
-" FLC";
-
-
-document
-.getElementById(
-"positionsCount"
-)
-.innerText =
-data.positions.length;
-
-
-
-const box =
-document.getElementById(
-"miningPositions"
-);
-
-
-if(
-data.positions.length === 0
-){
-
-box.innerHTML =
-
-`
-
-<div class="muted">
-
-No Mining Capacity yet.
-
-Go to Shop and buy your first
-Capacity.
-
-</div>
-
-`;
-
-return;
-
+async function buyCapacity(id) {
+  try {
+    await api("/api/capacity/" + id, { method: "POST" });
+    toast("Mining Capacity purchased!");
+    await loadMining();
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
-
-
-box.innerHTML =
-data.positions
-.map(
-p=>{
-
-const total =
-Number(
-p.capacity
-);
-
-const mined =
-Number(
-p.mined
-);
-
-const percent =
-total > 0
-?
-Math.min(
-100,
-mined /
-total *
-100
-)
-:
-0;
-
-
-return `
-
-<div class="position">
-
-<div
-style="
-display:flex;
-justify-content:space-between;
-"
->
-
-<b>
-Capacity #${p.id}
-</b>
-
-<span class="gold">
-
-${p.active
-? "● Mining"
-: "● Finished"}
-
-</span>
-
-</div>
-
-
-<div class="muted">
-
-${format(mined)}
-/
-${format(total)}
-FLC
-
-</div>
-
-
-<div class="progress">
-
-<div
-class="progress-bar"
-style="
-width:${percent}%
-"
-></div>
-
-</div>
-
-
-<div
-class="muted"
-style="
-margin-top:8px;
-"
->
-
-Remaining:
-${format(p.remaining)}
-FLC
-
-<br>
-
-Mining Rate:
-${format(p.rate)}
-% / day
-
-</div>
-
-
-</div>
-
-`;
-
-}
-)
-.join("");
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
+async function collect() {
+  try {
+    const data = await api("/api/collect", { method: "POST" });
+    toast("Collected " + format(data.collected) + " FLC");
+    await loadMining();
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
+async function loadWallets() {
+  try {
+    const wallets = await api("/api/deposit-wallets");
+    const box = document.getElementById("depositWallets");
+    if (wallets.length === 0) {
+      box.innerText = "No deposit wallet configured.";
+      return;
+    }
+    box.innerHTML = wallets.map(w => `
+      <div class="position">
+        <b>${w.network}</b><br>
+        <small>${w.address}</small>
+      </div>
+    `).join("");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
-
-
-async function loadPackages(){
-
-try{
-
-const packages =
-await api(
-"/api/packages"
-);
-
-
-document
-.getElementById(
-"packages"
-)
-.innerHTML =
-
-packages
-.map(
-p=>`
-
-<div class="package">
-
-<div class="gold">
-
-LEVEL ${p.id}
-
-</div>
-
-
-<div
-class="package-price"
->
-
-${format(p.price)}
-FLC
-
-→
-
-${format(p.capacity)}
-FLC Capacity
-
-</div>
-
-
-<div class="muted">
-
-Mining:
-${format(p.rate)}
-% / day
-
-</div>
-
-
-<button
-onclick="
-buyCapacity(${p.id})
-"
->
-
-Buy Capacity
-
-</button>
-
-
-</div>
-
-`
-)
-.join("");
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
+async function submitDeposit() {
+  try {
+    await api("/api/deposit", {
+      method: "POST",
+      body: JSON.stringify({
+        network: document.getElementById("depositNetwork").value,
+        amount: document.getElementById("depositAmount").value,
+        txid: document.getElementById("depositTx").value
+      })
+    });
+    toast("Deposit submitted!");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
+async function submitWithdraw() {
+  try {
+    await api("/api/withdraw", {
+      method: "POST",
+      body: JSON.stringify({
+        network: document.getElementById("withdrawNetwork").value,
+        wallet: document.getElementById("withdrawWallet").value,
+        amount: document.getElementById("withdrawAmount").value
+      })
+    });
+    toast("Withdrawal submitted!");
+    await loadMining();
+  } catch (error) {
+    toast(error.message);
+  }
 }
-
-
-
-async function buyCapacity(
-id
-){
-
-try{
-
-await api(
-"/api/capacity/"+id,
-{
-method:
-"POST"
-}
-);
-
-
-toast(
-"Mining Capacity purchased!"
-);
-
-
-await loadMining();
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
-}
-
-}
-
-
-
-async function collect(){
-
-try{
-
-const data =
-await api(
-"/api/collect",
-{
-method:
-"POST"
-}
-);
-
-
-toast(
-"Collected "
-+
-format(
-data.collected
-)
-+
-" FLC"
-);
-
-
-await loadMining();
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
-}
-
-}
-
-
-
-async function loadWallets(){
-
-try{
-
-const wallets =
-await api(
-"/api/deposit-wallets"
-);
-
-
-const box =
-document.getElementById(
-"depositWallets"
-);
-
-
-if(
-wallets.length === 0
-){
-
-box.innerText =
-"No deposit wallet configured.";
-
-return;
-
-}
-
-
-box.innerHTML =
-wallets
-.map(
-w=>`
-
-<div
-class="position"
->
-
-<b>
-${w.network}
-</b>
-
-<br>
-
-<small>
-${w.address}
-</small>
-
-</div>
-
-`
-)
-.join("");
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
-}
-
-}
-
-
-
-async function submitDeposit(){
-
-try{
-
-await api(
-"/api/deposit",
-{
-
-method:
-"POST",
-
-body:
-JSON.stringify({
-
-network:
-document
-.getElementById(
-"depositNetwork"
-)
-.value,
-
-amount:
-document
-.getElementById(
-"depositAmount"
-)
-.value,
-
-txid:
-document
-.getElementById(
-"depositTx"
-)
-.value
-
-})
-
-}
-);
-
-
-toast(
-"Deposit submitted!"
-);
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
-}
-
-}
-
-
-
-async function submitWithdraw(){
-
-try{
-
-await api(
-"/api/withdraw",
-{
-
-method:
-"POST",
-
-body:
-JSON.stringify({
-
-network:
-document
-.getElementById(
-"withdrawNetwork"
-)
-.value,
-
-wallet:
-document
-.getElementById(
-"withdrawWallet"
-)
-.value,
-
-amount:
-document
-.getElementById(
-"withdrawAmount"
-)
-.value
-
-})
-
-}
-);
-
-
-toast(
-"Withdrawal submitted!"
-);
-
-
-await loadMining();
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
-}
-
-}
-
-
 
 let referralLink = "";
 
-
-async function loadReferral(){
-
-try{
-
-const data =
-await api(
-"/api/referral"
-);
-
-
-referralLink =
-data.link;
-
-
-document
-.getElementById(
-"referralInfo"
-)
-.innerHTML =
-
-`
-
-<b>
-${data.count}
-</b>
-
-referrals
-
-<br><br>
-
-Reward:
-
-<b>
-${format(data.reward)}
-FLC
-</b>
-
-<br>
-
-Reward per referral:
-
-${format(data.per_referral)}
-FLC
-
-<br><br>
-
-${data.link}
-
-`;
-
-
-}
-catch(error){
-
-toast(
-error.message
-);
-
+async function loadReferral() {
+  try {
+    const data = await api("/api/referral");
+    referralLink = data.link;
+    document.getElementById("referralInfo").innerHTML = `
+      <b>${data.count}</b> referrals<br><br>
+      Reward: <b>${format(data.reward)} FLC</b><br>
+      Reward per referral: ${format(data.per_referral)} FLC<br><br>
+      ${data.link}
+    `;
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
+async function copyReferral() {
+  if (!referralLink) await loadReferral();
+  await navigator.clipboard.writeText(referralLink);
+  toast("Referral link copied!");
 }
-
-
-
-async function copyReferral(){
-
-if(
-!referralLink
-){
-
-await loadReferral();
-
-}
-
-
-await navigator
-.clipboard
-.writeText(
-referralLink
-);
-
-
-toast(
-"Referral link copied!"
-);
-
-}
-
-
 
 loadMining();
-
-
-setInterval(
-loadMining,
-5000
-);
-
-
+setInterval(() => loadMining(true), 5000);
 </script>
-
-
 </body>
-
 </html>
 HTML
 
 
 # =========================================================
-# GITIGNORE
+# .gitignore
 # =========================================================
 
 cat > .gitignore <<'EOF'
@@ -3216,78 +1303,30 @@ EOF
 
 
 # =========================================================
-# README
+# README.md
 # =========================================================
 
 cat > README.md <<'EOF'
 # 🦅 Falcon Mining Bot
 
 Telegram Bot:
-
 @GlobalEarnnn_Bot
 
-Main currency:
-
-FLC
-
-Welcome bonus:
-
-1000 FLC
-
-Confirmed Capacity examples:
-
-100 FLC -> 500 FLC Capacity
-
-1000 FLC -> 5000 FLC Capacity
-
-5000 FLC -> 25000 FLC Capacity
-
-The project contains:
-
-- Telegram Bot
-- Telegram Mini App
-- FastAPI
-- PostgreSQL
-- Mining system
-- Mining Capacity
-- Multiple positions
-- Collect All
-- Referral
-- Deposit
-- Withdrawal
-- Admin wallet
-- Ledger
+Main currency: FLC
+Welcome bonus: 1000 FLC
 
 Run:
-
 docker compose up --build
-
-Do not upload .env to GitHub.
-
-Before real crypto payments are enabled,
-add blockchain transaction verification,
-security controls and appropriate legal/compliance review.
 EOF
 
-
 echo ""
 echo "=========================================="
-echo "🦅 FALCON MINING BOT CREATED"
+echo "🦅 FALCON MINING BOT SUCCESSFULLY CREATED!"
 echo "=========================================="
 echo ""
-echo "Project:"
-echo "$PROJECT"
-echo ""
-echo "Next:"
-echo "cd $PROJECT"
-echo "cp .env.example .env"
-echo "nano .env"
-echo "docker compose up --build"
-echo ""
-echo "Mini App:"
-echo "https://YOUR-DOMAIN.com/app/"
-echo ""
-echo "Bot:"
-echo "@GlobalEarnnn_Bot"
-echo ""
+echo "Next steps:"
+echo "1. cd $PROJECT"
+echo "2. cp .env.example .env"
+echo "3. nano .env  # (Put your BOT_TOKEN & ADMIN_IDS)"
+echo "4. docker compose up --build -d"
 echo "=========================================="
