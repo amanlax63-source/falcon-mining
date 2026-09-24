@@ -16,69 +16,71 @@
             text-align: center;
         }
 
-        /* Top Bar */
+        /* Top Navigation */
         .top-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(22, 27, 34, 0.85);
+            background: rgba(22, 27, 34, 0.9);
             backdrop-filter: blur(8px);
             border-radius: 12px;
-            padding: 8px 12px;
+            padding: 10px 14px;
             border: 1px solid #30363d;
         }
         .balance-box { text-align: left; }
-        .balance-val { color: #f97316; font-size: 18px; font-weight: bold; }
+        .balance-val { color: #f97316; font-size: 19px; font-weight: bold; }
         .profile-btn {
             background: #21262d; border: 1px solid #30363d;
-            color: white; padding: 6px 14px; border-radius: 8px; font-weight: bold;
+            color: white; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
 
-        /* Tabs Menu */
+        /* Menu Tabs */
         .tabs {
             display: grid; grid-template-columns: repeat(4, 1fr);
             gap: 6px; margin: 12px 0;
         }
         .tab-btn {
-            background: rgba(33, 38, 45, 0.85); border: 1px solid #30363d;
-            color: #8b949e; padding: 8px 0; border-radius: 8px; font-size: 12px; font-weight: bold;
+            background: rgba(33, 38, 45, 0.9); border: 1px solid #30363d;
+            color: #8b949e; padding: 10px 0; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer;
         }
-        .tab-btn.active { color: white; background: #30363d; }
+        .tab-btn.active { color: white; background: #30363d; border-color: #f97316; }
 
-        /* Income Bar */
+        /* Income Indicator */
         .income-bar {
             background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
             border-radius: 8px; padding: 8px 12px; display: flex;
             justify-content: space-between; font-size: 13px; margin-bottom: 12px;
         }
 
-        /* Mining Main Area */
+        /* Main Mining Box */
         .mining-container {
-            display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
-            background: rgba(22, 27, 34, 0.85); border: 1px solid #30363d;
+            display: grid; grid-template-columns: 1.1fr 1.9fr; gap: 8px;
+            background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
             border-radius: 12px; padding: 12px; margin-bottom: 12px;
         }
         .wizard-box {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .wizard-img { width: 70px; height: 70px; border-radius: 50%; border: 2px solid #a855f7; }
-        .mined-amount { font-size: 16px; color: #f97316; font-weight: bold; margin: 6px 0; }
+        .wizard-img { width: 65px; height: 65px; border-radius: 50%; border: 2px solid #a855f7; }
+        .mined-amount { font-size: 15px; color: #f97316; font-weight: bold; margin: 6px 0; }
         .collect-btn {
             background: #238636; border: none; color: white;
-            padding: 6px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;
+            padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;
         }
 
+        /* Top Mages Display Grid */
         .mages-grid {
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
         }
         .mage-item {
             background: #161b22; border: 1px solid #30363d; border-radius: 6px;
-            padding: 4px; font-size: 11px; display: flex; flex-direction: column; align-items: center;
+            padding: 4px; font-size: 10px; display: flex; flex-direction: column; align-items: center;
         }
+        .mage-lvl { color: #8b949e; font-size: 9px; }
 
-        /* Magic Section */
+        /* Magic Power Section */
         .magic-sec {
-            background: rgba(22, 27, 34, 0.85); border: 1px solid #30363d;
+            background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
             border-radius: 12px; padding: 10px; margin-bottom: 12px;
         }
         .magic-head { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
@@ -87,15 +89,21 @@
             background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px;
         }
 
-        /* Shop Cards */
+        /* Shop Cards Grid */
         .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .card {
-            background: rgba(22, 27, 34, 0.85); border: 1px solid #30363d;
+            background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d;
             border-radius: 10px; padding: 10px; text-align: center;
         }
         .buy-btn {
             background: #21262d; border: 1px solid #30363d; color: white;
-            width: 100%; padding: 6px; border-radius: 6px; margin-top: 6px; font-weight: bold;
+            width: 100%; padding: 6px; border-radius: 6px; margin-top: 6px; font-weight: bold; cursor: pointer;
+        }
+        .buy-btn:hover { background: #30363d; }
+
+        .input-field {
+            width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #30363d;
+            background: #0d1117; color: white; margin: 8px 0; text-align: center;
         }
 
         .tab-content { display: none; }
@@ -104,6 +112,7 @@
 </head>
 <body>
 
+    <!-- Top Bar -->
     <div class="top-nav">
         <div class="balance-box">
             <div style="font-size: 10px; color: #8b949e;">My balance</div>
@@ -112,13 +121,15 @@
         <button class="profile-btn" onclick="showTab('profile')">Profile</button>
     </div>
 
+    <!-- Main Navigation Tabs -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('mining')">Magician</button>
-        <button class="tab-btn" onclick="showTab('deposit')">Deposit</button>
-        <button class="tab-btn" onclick="showTab('withdraw')">Withdraw</button>
-        <button class="tab-btn" onclick="showTab('partners')">Partners</button>
+        <button class="tab-btn active" id="btn-mining" onclick="showTab('mining')">Magician</button>
+        <button class="tab-btn" id="btn-deposit" onclick="showTab('deposit')">Deposit</button>
+        <button class="tab-btn" id="btn-withdraw" onclick="showTab('withdraw')">Withdraw</button>
+        <button class="tab-btn" id="btn-partners" onclick="showTab('partners')">Partners</button>
     </div>
 
+    <!-- TAB 1: MINING & SHOP -->
     <div id="mining" class="tab-content active">
         <div class="income-bar">
             <span>Daily income</span>
@@ -127,17 +138,19 @@
 
         <div class="mining-container">
             <div class="wizard-box">
-                <img src="falcon_web_app_photo.png" class="wizard-img">
+                <img src="falcon_web_app_photo.png" class="wizard-img" alt="Falcon Mage">
                 <div class="mined-amount"><span id="mined">0.0000</span></div>
                 <button class="collect-btn" onclick="collectCoins()">COLLECT</button>
             </div>
             <div class="mages-grid" id="mages-list">
-                </div>
+                <!-- Dynamically generated mages grid -->
+            </div>
         </div>
 
+        <!-- Magic Power Buy Section -->
         <div class="magic-sec">
             <div class="magic-head">
-                <span>Magic</span>
+                <span>Magic Power</span>
                 <span style="color: #a855f7; font-weight: bold;">🔮 <span id="magic-power">600</span></span>
             </div>
             <div class="magic-books">
@@ -159,49 +172,118 @@
             </div>
         </div>
 
+        <!-- All Mage Levels (10 to 5,000) -->
         <div class="shop-grid">
             <div class="card">
-                <div style="font-size: 25px;">🧙‍♂️</div>
-                <div style="font-size: 11px; color: #8b949e;">Daily income 20%</div>
-                <div style="font-size: 12px; color: #f97316;">+2 🔥</div>
-                <button class="buy-btn" onclick="buyMage(10, 2, 0)">🔥 10</button>
+                <div style="font-size: 24px;">🧙‍♂️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 1 (20%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+2 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(10, 2, 0)">Buy 🔥 10</button>
             </div>
             <div class="card">
-                <div style="font-size: 25px;">🧙‍♀️</div>
-                <div style="font-size: 11px; color: #8b949e;">Daily income 20%</div>
-                <div style="font-size: 12px; color: #f97316;">+5 🔥</div>
-                <button class="buy-btn" onclick="buyMage(25, 5, 1)">🔥 25</button>
+                <div style="font-size: 24px;">🧙‍♀️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 2 (22%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+11 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(50, 11, 1)">Buy 🔥 50</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">🧝‍♂️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 3 (24%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+24 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(100, 24, 2)">Buy 🔥 100</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">🧝‍♀️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 4 (26%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+65 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(250, 65, 3)">Buy 🔥 250</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">🧛‍♂️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 5 (28%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+140 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(500, 140, 4)">Buy 🔥 500</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">🧙‍♂️</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 6 (30%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+300 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(1000, 300, 5)">Buy 🔥 1,000</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">👑</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 7 (32%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+800 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(2500, 800, 6)">Buy 🔥 2,500</button>
+            </div>
+            <div class="card">
+                <div style="font-size: 24px;">🔥</div>
+                <div style="font-size: 11px; color: #8b949e;">Lvl 8 (35%/day)</div>
+                <div style="font-size: 12px; color: #f97316; font-weight: bold;">+1,750 🔥/day</div>
+                <button class="buy-btn" onclick="buyMage(5000, 1750, 7)">Buy 🔥 5,000</button>
             </div>
         </div>
     </div>
 
+    <!-- TAB 2: DEPOSIT -->
     <div id="deposit" class="tab-content">
-        <div class="card" style="padding:20px;">
-            <h3>💳 Deposit Crypto</h3>
-            <p style="font-size:12px; color:#8b949e; margin:10px 0;">Minimum Deposit: $1.00</p>
-            <p style="color:#f97316;">$1.00 = 5,000 🔮 Magic</p>
+        <div class="card" style="padding:15px; text-align:left;">
+            <h3 style="text-align:center; margin-bottom:10px;">💳 Deposit Magic</h3>
+            <p style="font-size:12px; color:#8b949e;">Exchange Rate: $1.00 USD = 5,000 🔮 Magic</p>
+            <p style="font-size:12px; color:#8b949e; margin-bottom:10px;">Minimum Deposit: $1.00</p>
+            
+            <label style="font-size:12px; color:#8b949e;">Select Crypto Asset:</label>
+            <select class="input-field">
+                <option>USDT (TRC20)</option>
+                <option>TON (The Open Network)</option>
+                <option>TRX (Tron)</option>
+                <option>BNB (BEP20)</option>
+            </select>
+            
+            <button class="buy-btn" style="background:#238636;" onclick="alert('Deposit system initialized. Send funds to bot wallet.')">Generate Deposit Address</button>
         </div>
     </div>
 
+    <!-- TAB 3: WITHDRAW -->
     <div id="withdraw" class="tab-content">
-        <div class="card" style="padding:20px;">
-            <h3>💸 Withdraw Funds</h3>
-            <p style="font-size:12px; color:#8b949e; margin:10px 0;">Minimum Withdraw: 10,000 🔥</p>
+        <div class="card" style="padding:15px; text-align:left;">
+            <h3 style="text-align:center; margin-bottom:10px;">💸 Withdraw Profits</h3>
+            <p style="font-size:12px; color:#8b949e;">Minimum Withdrawal: 10,000 🔥</p>
+            
+            <input type="number" placeholder="Enter amount (🔥)" class="input-field">
+            <input type="text" placeholder="Wallet Address (USDT / TON)" class="input-field">
+            
+            <button class="buy-btn" style="background:#238636;" onclick="alert('Withdrawal request submitted!')">Request Withdraw</button>
         </div>
     </div>
 
+    <!-- TAB 4: PARTNERS -->
     <div id="partners" class="tab-content">
         <div class="card" style="padding:15px;">
             <h3>🤝 Referral Program</h3>
-            <p style="font-size:12px; margin:10px 0;">Get 25 🔥 for each invited friend!</p>
-            <button class="buy-btn" style="background:#238636;" onclick="alert('Link Copied!')">Copy Referral Link</button>
+            <p style="font-size:12px; margin:10px 0; color:#8b949e;">Invite friends and earn 25 🔥 for every active user!</p>
+            
+            <div style="background:#0d1117; padding:10px; border-radius:6px; font-size:11px; margin-bottom:10px; color:#a855f7;">
+                https://t.me/FalconEarn_Bot?start=ref91884
+            </div>
+            
+            <button class="buy-btn" style="background:#238636;" onclick="alert('Referral link copied to clipboard!')">Copy Link</button>
+            
+            <div style="margin-top:15px; font-size:12px; text-align:left;">
+                <p>Total Partners: <strong>0</strong></p>
+                <p>Partner Earnings: <strong>0 🔥</strong></p>
+            </div>
         </div>
     </div>
 
+    <!-- TAB 5: PROFILE -->
     <div id="profile" class="tab-content">
         <div class="card" style="padding:15px; text-align:left;">
-            <p><strong>User ID:</strong> <span id="user-id">91884</span></p>
-            <p style="margin-top:10px;"><strong>Status:</strong> Active</p>
+            <h3 style="text-align:center; margin-bottom:10px;">👤 User Profile</h3>
+            <p style="margin-bottom:6px;"><strong>User ID:</strong> <span id="user-id">91884</span></p>
+            <p style="margin-bottom:6px;"><strong>Status:</strong> <span style="color:#238636;">Active Player</span></p>
+            <p style="margin-bottom:6px;"><strong>Total Purchased Mages:</strong> <span id="total-mages">0</span></p>
+            <p style="margin-bottom:6px;"><strong>Account History:</strong> No pending transactions.</p>
         </div>
     </div>
 
@@ -210,16 +292,19 @@
         let minedAmount = 0;
         let magicPower = 600;
         let dailyIncome = 0;
-        let magesCount = [0, 0, 0, 0, 0, 0, 0, 0];
+        let magesCount = [0, 0, 0, 0, 0, 0, 0, 0]; // Counts for Lvl 1 to Lvl 8
 
         // Tab Switching Logic
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
             document.getElementById(tabName).classList.add('active');
+            let btn = document.getElementById('btn-' + tabName);
+            if (btn) btn.classList.add('active');
         }
 
-        // Live Mining Cycle
+        // Live Mining Loop
         setInterval(() => {
             if (magicPower > 0 && dailyIncome > 0) {
                 let perSec = (dailyIncome / 86400);
@@ -233,6 +318,7 @@
         }, 1000);
 
         function collectCoins() {
+            if (minedAmount <= 0) return;
             balance += minedAmount;
             minedAmount = 0;
             document.getElementById('balance').innerText = Math.floor(balance);
@@ -245,6 +331,8 @@
                 magicPower += amount;
                 document.getElementById('balance').innerText = Math.floor(balance);
                 document.getElementById('magic-power').innerText = Math.floor(magicPower);
+            } else {
+                alert('Insufficient Balance!');
             }
         }
 
@@ -255,7 +343,14 @@
                 magesCount[index]++;
                 document.getElementById('balance').innerText = Math.floor(balance);
                 document.getElementById('daily-income').innerText = dailyIncome;
+                
+                // Update Total Mages Count in Profile
+                let total = magesCount.reduce((a, b) => a + b, 0);
+                document.getElementById('total-mages').innerText = total;
+
                 renderMagesGrid();
+            } else {
+                alert('Insufficient Balance to buy this Mage!');
             }
         }
 
@@ -263,10 +358,16 @@
             let container = document.getElementById('mages-list');
             container.innerHTML = '';
             magesCount.forEach((count, i) => {
-                container.innerHTML += `<div class="mage-item"><div>🧙‍♂️</div><div>${count}</div></div>`;
+                container.innerHTML += `
+                    <div class="mage-item">
+                        <div>🧙‍♂️</div>
+                        <div>${count}</div>
+                        <div class="mage-lvl">Lvl ${i+1}</div>
+                    </div>`;
             });
         }
 
+        // Initialize Grid
         renderMagesGrid();
     </script>
 </body>
