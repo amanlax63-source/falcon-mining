@@ -6,101 +6,199 @@
     <title>Falcon Mining App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             background-color: #0b0e14;
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
             padding: 15px;
-            border-radius: 15px;
+            text-align: center;
+        }
+        
+        /* Top Navigation Header */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .balance-card {
+            background: #1e293b;
             border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 8px 16px;
+            text-align: left;
+        }
+        .balance-title {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+        .balance-value {
+            color: #38bdf8;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .profile-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #ffffff;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* Horizontal Tabs Menu (ወደ ጎን የተደረደሩት በተኖች) */
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
             margin-bottom: 20px;
         }
-        .balance-box {
-            font-size: 28px;
+        .tab-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 10px 0;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            color: #ffffff;
+            background: #0284c7;
+            border-color: #38bdf8;
+        }
+
+        /* Daily Income Bar */
+        .income-bar-container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .income-value {
             color: #38bdf8;
+            font-weight: bold;
+        }
+
+        /* Main Tap / Mining Area */
+        .tap-area {
+            margin: 20px 0;
         }
         .falcon-logo {
-            width: 180px;
-            height: 180px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             border: 4px solid #38bdf8;
             box-shadow: 0 0 25px #0284c7;
-            margin: 20px auto;
             cursor: pointer;
             transition: transform 0.1s;
         }
         .falcon-logo:active {
             transform: scale(0.95);
         }
+
+        /* Horizontal Cards Section (ወደ ጎን ማይነሮች) */
         .shop-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-top: 20px;
         }
         .card {
             background: #1e293b;
-            padding: 15px;
+            padding: 12px 6px;
             border-radius: 12px;
             border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
-        .btn {
+        .card-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .card-bonus {
+            color: #38bdf8;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .buy-btn {
             background: #0284c7;
             color: white;
             border: none;
-            padding: 10px 15px;
-            border-radius: 8px;
+            padding: 8px 0;
+            border-radius: 6px;
             font-weight: bold;
+            font-size: 12px;
             cursor: pointer;
             width: 100%;
-            margin-top: 8px;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div>Total Balance</div>
-        <div class="balance-box"><span id="balance">1000</span> $FALCON</div>
+    <!-- Top Navigation Header -->
+    <div class="top-nav">
+        <div class="balance-card">
+            <div class="balance-title">My Balance</div>
+            <div>🦅 <span id="balance" class="balance-value">1000</span></div>
+        </div>
+        <button class="profile-btn">Profile</button>
     </div>
 
-    <div onclick="tapFalcon()">
-        <img src="falcon_web_app_photo.png" class="falcon-logo" alt="Falcon Mining">
+    <!-- Horizontal Tabs Menu (Mining, Deposit, Withdraw, Share) -->
+    <div class="tabs">
+        <button class="tab-btn active">Mining</button>
+        <button class="tab-btn">Deposit</button>
+        <button class="tab-btn">Withdraw</button>
+        <button class="tab-btn">Share</button>
     </div>
-    <p>Tap falcon to mine coins!</p>
 
-    <h2>🛒 Auto-Miner Shop</h2>
+    <!-- Daily Income Bar -->
+    <div class="income-bar-container">
+        <span>Daily income</span>
+        <span class="income-value">🦅 12,500 / day</span>
+    </div>
+
+    <!-- Tap Falcon Center -->
+    <div class="tap-area">
+        <img src="falcon_web_app_photo.png" class="falcon-logo" alt="Falcon Mining" onclick="tapFalcon()">
+        <p style="margin-top: 10px; font-size: 12px; color: #94a3b8;">Tap falcon to mine coins!</p>
+    </div>
+
+    <!-- Horizontal Shop Cards -->
     <div class="shop-container">
         <div class="card">
-            <h3>Miner Lv 1</h3>
-            <p>Cost: 10 $FALCON</p>
-            <p>Speed: 2.5 / day</p>
-            <button class="btn" onclick="buyMiner(10)">Buy Miner</button>
+            <div class="card-title">Lv 1</div>
+            <div class="card-bonus">+500 🦅</div>
+            <button class="buy-btn" onclick="buyMiner(10)">10 🦅</button>
         </div>
         <div class="card">
-            <h3>Miner Lv 2</h3>
-            <p>Cost: 50 $FALCON</p>
-            <p>Speed: 12.5 / day</p>
-            <button class="btn" onclick="buyMiner(50)">Buy Miner</button>
+            <div class="card-title">Lv 2</div>
+            <div class="card-bonus">+5,000 🦅</div>
+            <button class="buy-btn" onclick="buyMiner(50)">50 🦅</button>
         </div>
         <div class="card">
-            <h3>Miner Lv 3</h3>
-            <p>Cost: 250 $FALCON</p>
-            <p>Speed: 62.5 / day</p>
-            <button class="btn" onclick="buyMiner(250)">Buy Miner</button>
-        </div>
-        <div class="card">
-            <h3>Miner Lv 4</h3>
-            <p>Cost: 1,000 $FALCON</p>
-            <p>Speed: 250 / day</p>
-            <button class="btn" onclick="buyMiner(1000)">Buy Miner</button>
+            <div class="card-title">Lv 3</div>
+            <div class="card-bonus">+25,000 🦅</div>
+            <button class="buy-btn" onclick="buyMiner(250)">250 🦅</button>
         </div>
     </div>
 
@@ -113,7 +211,6 @@
         }
 
         function buyMiner(cost) {
-            // ምንም ዓይነት Alert ሳይመጣ በቀጥታ ባላንስ ይቀንሳል
             if (balance >= cost) {
                 balance -= cost;
                 document.getElementById('balance').innerText = balance;
