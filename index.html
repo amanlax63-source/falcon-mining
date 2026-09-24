@@ -113,12 +113,10 @@
         }
 
         function buyMiner(cost) {
+            // ምንም ዓይነት Alert ሳይመጣ በቀጥታ ባላንስ ይቀንሳል
             if (balance >= cost) {
                 balance -= cost;
                 document.getElementById('balance').innerText = balance;
-                alert('Success! Miner purchased. You will generate return in 4 days!');
-            } else {
-                alert('Not enough $FALCON balance!');
             }
         }
     </script>
